@@ -5,6 +5,7 @@ import os
 import tempfile
 from PIL import Image
 from algorithms.spr_png_to_gbstudio_anim import process, load_gbsres_file
+from algorithms import tile_deduplication
 import json
 
 
@@ -591,6 +592,8 @@ def main():
             st.session_state.create_gifs = True
         if 'quantize_15bit' not in st.session_state:
             st.session_state.quantize_15bit = True
+        if 'enable_tile_deduplication' not in st.session_state:
+            st.session_state.enable_tile_deduplication = True
         
         # Basic parameters
         st.subheader("Basic Settings")
@@ -678,9 +681,11 @@ def main():
         
         st.subheader("Debug Options")
         create_gifs = st.checkbox("Create GIFs", value=st.session_state.create_gifs, help="Generate animated GIFs for debugging animations", key="create_gifs_input")
+        enable_tile_deduplication = st.checkbox("Tile Deduplication", value=st.session_state.enable_tile_deduplication, help="Remove duplicate tiles to save memory by reusing identical tiles across layers, frames, and animations", key="enable_tile_deduplication_input")
         
-        # Update session state for create_gifs
+        # Update session state for debug options
         st.session_state.create_gifs = create_gifs
+        st.session_state.enable_tile_deduplication = enable_tile_deduplication
         
         # Show 15-bit mode only if GIFs are enabled
         if create_gifs:
@@ -696,6 +701,23 @@ def main():
                 st.write("**Auto-Extracted Palette from Image:**")
                 extracted = st.session_state.extracted_palette
                 bg_hex = extracted['background']
+                
+                # Create palette string in same format as custom palette input
+                palette_parts = [bg_hex]
+                for palette in extracted['palettes']:
+                    palette_parts.append(','.join(palette))
+                extracted_palette_string = ';'.join(palette_parts)
+                
+                # Display as read-only text input in same format
+                st.text_input(
+                    "Auto-Extracted Palette String",
+                    value=extracted_palette_string,
+                    disabled=True,
+                    help="Auto-extracted palette in the same format as custom palette input (background;r1,g1,b1;r2,g2,b2;...)",
+                    key="extracted_palette_string"
+                )
+                
+                # Keep the existing visual display
                 st.write(f"Background: `#{bg_hex}`")
                 
                 for i, palette in enumerate(extracted['palettes']):
@@ -767,6 +789,7 @@ def main():
             st.session_state.checksum = "TBD"
             st.session_state.create_gifs = True
             st.session_state.quantize_15bit = True
+            st.session_state.enable_tile_deduplication = True
             st.session_state.gif_palette = ""
             st.session_state.extracted_palette = None
             st.session_state.state_types = ["fixed"]
@@ -842,6 +865,28 @@ def main():
                         
                         # Process the image with optional GBSRES template
                         processed_image = process(image, gbsres_data, params)
+                        
+                        # Apply tile deduplication if enabled
+                        if enable_tile_deduplication:
+                            st.session_state.output_log.append("🔧 Applying tile deduplication...")
+                            processed_image = tile_deduplication.process(processed_image)
+                            
+                            # Log deduplication results
+                            if hasattr(processed_image, 'extra_data') and isinstance(processed_image.extra_data, dict):
+                                dedup_info = processed_image.extra_data.get('deduplication', {})
+                                if dedup_info:
+                                    total_tiles = dedup_info.get('total_tiles', 0)
+                                    unique_tiles = dedup_info.get('unique_tiles', 0)
+                                    duplicate_tiles = dedup_info.get('duplicate_tiles', 0)
+                                    st.session_state.output_log.append(f"📊 Tile deduplication results:")
+                                    st.session_state.output_log.append(f"  Total tiles: {total_tiles}")
+                                    st.session_state.output_log.append(f"  Unique tiles: {unique_tiles}")
+                                    st.session_state.output_log.append(f"  Duplicate tiles removed: {duplicate_tiles}")
+                                    if total_tiles > 0:
+                                        savings_percent = (duplicate_tiles / total_tiles) * 100
+                                        st.session_state.output_log.append(f"  Memory savings: {savings_percent:.1f}%")
+                        else:
+                            st.session_state.output_log.append("🔧 Tile deduplication disabled")
                         
                         # Add processing completion to log
                         st.session_state.output_log.append("✅ Sprite processing completed successfully")
@@ -1065,6 +1110,13 @@ def main():
           - Logs GIF creation results and animation metadata
           - Read-only text area with clear log functionality
           - Temporary debug feature for development and troubleshooting
+        
+        - **Tile Deduplication**: Memory optimization by removing duplicate tiles
+          - Automatically detects identical tiles across layers, frames, and animations
+          - Replaces duplicate tiles with references to the first occurrence
+          - Helps save memory by reusing tiles instead of storing duplicates
+          - Enabled by default for optimal performance
+          - Shows detailed statistics: total tiles, unique tiles, duplicates removed, memory savings percentage
         
         - **Create GIFs**: Generates animated GIFs for each animation state
           - Shows how your sprite will animate in GB Studio

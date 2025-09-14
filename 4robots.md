@@ -54,6 +54,16 @@ streamlit_gbstudio_app/
   - Creates stacked bands for animation layers
   - Handles different image modes (RGB, RGBA)
 
+### 4. `algorithms/tile_deduplication.py`
+- **Purpose**: Memory optimization by removing duplicate tiles
+- **Key Function**: `process(image, params="")`
+- **Features**:
+  - Detects identical tiles across layers, frames, and animations
+  - Replaces duplicate tiles with references to first occurrence
+  - Uses MD5 hashing for efficient tile comparison
+  - Provides detailed statistics on memory savings
+  - Preserves original tile data for reference
+
 ## Dependencies
 - **streamlit>=1.28.0**: Web application framework
 - **Pillow>=10.0.0**: Image processing
@@ -213,6 +223,13 @@ streamlit_gbstudio_app/
   - No need to re-enter settings each time
   - "Clear All Settings" button for easy reset
   - Improves user experience significantly
+- **Tile Deduplication**: Added memory optimization feature (enabled by default)
+  - Automatically detects identical tiles across layers, frames, and animations
+  - Replaces duplicate tiles with references to first occurrence
+  - Uses MD5 hashing for efficient tile comparison
+  - Provides detailed statistics: total tiles, unique tiles, duplicates removed, memory savings percentage
+  - Toggle control in Debug Options section
+  - Helps save memory by reusing tiles instead of storing duplicates
 
 ## Layer Palettes Logic (CRITICAL)
 - **Layer Palettes Parameter**: Defines GB Studio palette IDs for GBSRES file generation
