@@ -88,10 +88,10 @@ streamlit_gbstudio_app/
   - Base64 encode images for inline display
 
 ### 3. Zoom Level Controls
-- **Feature**: Added x1, x2, x4, x8, x16 zoom level controls
+- **Feature**: Added x1, x2, x4, x8, x16, x32 zoom level controls
 - **Implementation**:
   - Zoom level selector in sidebar under "Display Settings"
-  - Applied to both input and output images
+  - Applied to both input and output images and animation GIFs
   - Uses nearest neighbor interpolation for pixel-perfect scaling
   - Visual indicators show current zoom level
 
@@ -104,11 +104,56 @@ streamlit_gbstudio_app/
   - GBSRES metadata collapsed by default in expandable section
   - Clear visual hierarchy: Upload → Configure → Process → Compare → Download
 
-### 5. PowerShell Execution Policy
+### 5. Animation GIF Debug Feature
+- **Feature**: Generate animated GIFs for debugging sprite animations
+- **Implementation**:
+  - Checkbox in "Debug Options" section to enable GIF creation
+  - Creates GIFs for each animation state and animation sequence
+  - Extracts frames from processed sprite data using tile coordinates
+  - Applies proper flips and transformations as defined in GBSRES data
+  - Displays GIFs in a grid layout with animation metadata
+  - Uses same zoom level as display settings for consistency
+  - 5 FPS animation speed (200ms per frame) for smooth debugging
+  - Green (0, 255, 0) background shows Game Boy transparent areas
+  - Each frame drawn on fresh canvas to prevent accumulation artifacts
+  - Pixel-perfect scaling using nearest neighbor interpolation for crisp GIFs
+  - Effective zoom level (zoom + 1) for extra clarity and to prevent browser scaling
+  - Dual palette system for GIF visualization
+  - Auto-extraction: Analyzes input RGB image and extracts dominant colors
+  - Custom override: Optional manual palette specification
+  - Palette format: background;r1,g1,b1;r2,g2,b2;... (hex colors without #)
+  - Background color replaces green (0, 255, 0) transparent areas
+  - Palette colors applied to sprite pixels for better visualization
+  - Only affects GIF display, not actual GB Studio processing
+  - Position-based color extraction from top row (same logic as spr_rgb_to_3color_layers.py)
+  - UI shows all 3 colors per palette horizontally (Light, Mid, Dark)
+  - Proper GB Studio color mapping: e0f8cf→light, 86c06c→mid, 071821→dark
+  - Supports up to 2 palettes (6 colors total) for multi-layer sprites
+  - Layer-specific palette mapping: Layer 1 uses first palette, Layer 2 uses second palette
+  - 15-bit color quantization option for Game Boy hardware visualization (only shown when GIFs enabled)
+  - Button-based state type selection (Fixed, Multi, Multi Movement)
+  - Increased GIF scaling to zoom level + 2 for better visibility
+  - Color-based palette mapping: Light/mid colors use first palette, dark colors use second palette
+  - Simplified layer handling for GIF generation
+  - Removed debug output for cleaner console
+  - GIF output enabled by default
+  - 15-bit quantization enabled by default
+
+### 6. Session State Persistence
+- **Feature**: Remember user parameters between sessions
+- **Implementation**:
+  - All form inputs automatically saved to session state
+  - Parameters restored when app reloads or user returns
+  - Includes: filename, processing options, tile settings, animation states, zoom level, etc.
+  - "Clear All Settings" button to reset to defaults
+  - Clears processing results when settings are reset
+  - Improves user experience by eliminating need to re-enter settings
+
+### 7. PowerShell Execution Policy
 - **Issue**: Cannot run `.ps1` activation scripts
 - **Solution**: Use `.bat` files or direct python executable calls
 
-### 6. Package Installation Cancellation
+### 8. Package Installation Cancellation
 - **Issue**: Interactive prompts cause user cancellation
 - **Solution**: Use silent installation flags or background installation
 
@@ -156,3 +201,26 @@ streamlit_gbstudio_app/
 - **Individual Testing**: Each test module can be run independently using unittest
 - **Virtual Environment**: Confirmed working with `.\venv\Scripts\python.exe` execution
 - **Test Coverage**: Includes app integration testing via `test_app.py` standalone script
+- **GIF Debug Feature**: Added animation GIF generation for debugging sprite animations
+  - Creates animated GIFs for each animation state and sequence
+  - Extracts frames from processed sprite data using tile coordinates
+  - Applies proper flips and transformations as defined in GBSRES data
+  - Displays in grid layout with animation metadata (state type, frame count, flip info)
+  - Uses same zoom level as display settings for consistency
+  - 5 FPS animation speed for smooth debugging experience
+- **Session State Persistence**: Added parameter memory between sessions
+  - All form inputs automatically saved and restored
+  - No need to re-enter settings each time
+  - "Clear All Settings" button for easy reset
+  - Improves user experience significantly
+
+## Layer Palettes Logic (CRITICAL)
+- **Layer Palettes Parameter**: Defines GB Studio palette IDs for GBSRES file generation
+  - Example: "3,4" means 2 layers using GB Studio palette IDs 3 and 4
+  - Number of layers = number of comma-separated values
+  - These IDs are used in the generated GBSRES JSON metadata
+- **GIF Visualization**: Uses sequential array indices (0, 1, 2...) for extracted palettes
+  - Ignore the GB Studio palette IDs for GIF generation
+  - Map extracted palettes sequentially: first extracted palette = index 0, second = index 1, etc.
+  - GB Studio may have more palettes than what's extracted from the image
+- **Key Insight**: Layer palettes define GB Studio palette IDs, not array indices for extracted palettes
